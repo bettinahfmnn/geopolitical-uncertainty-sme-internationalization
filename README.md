@@ -12,6 +12,31 @@ foreign commitment, making them more likely to reduce foreign investment than la
 uncertainty than larger firms.
 
 ## Variables
-- Firm Size: log(AT) — natural log of total assets (Compustat)
-- Foreign Investment: CAPX — capital expenditures (Compustat)
-- Geopolitical Uncertainty: GPR Index (Caldara & Iacoviello, 2022)
+
+### Dependent variable (Y)
+| Construct | Data Item(s) | Formula |
+|-----------|-------------|---------|
+| Capital Intensity | CAPX, AT | CAPX / AT |
+
+### Independent variable (X)
+| Construct | Data Item(s) | Formula |
+|-----------|-------------|---------|
+| Firm Size | AT | log(AT) |
+
+### Controls
+| Construct | Data Item(s) | Formula |
+|-----------|-------------|---------|
+| Leverage | DLTT, DLC, SEQ | (DLTT+DLC) / SEQ |
+| Firm Age | FYEAR, ipodate | FYEAR - ipodate |
+| RoA | NI, AT | NI / AT |
+| Industry | SIC | categorical |
+## Data
+| Item | Detail |
+|------|--------|
+| Source | WRDS / Compustat Global |
+| Table | comp_global_daily.g_funda |
+| Downloaded | 2026-05-28 |
+| License | WRDS subscriber agreement |
+| Fiscal years | 2015-2024 |
+| Raw rows | 338,462 |
+| Clean rows | 89,713 |

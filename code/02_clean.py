@@ -1,104 +1,71 @@
-"""
-02_clean.py
------------
-Clean raw Compustat data, apply SME filter, construct variables.
-
-Input:  data/raw/compustat_global_raw.parquet
-Output: data/processed/panel_clean.parquet
-
-Variable construction
----------------------
-ROA            = ib / at           (return on assets; performance)
-DOI            = pifo / sale       (foreign income share; degree of internationalization)
-DOI²           = doi ** 2          (non-linearity test, H1)
-R&D intensity  = xrd / at          (R&D expenditure / total assets; 0 if missing)
-DOI × R&D      = doi * rd_intensity (moderation term, H2)
-Firm size      = log(at)
-Leverage       = dltt / at
-Age            = fyear - inco
-
-All continuous outcome variables are winsorized at 1%–99%.
-"""
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import glob
 
-# ── Paths — always relative ────────────────────────────────────────────────────
-RAW_PATH = Path("data/raw/compustat_global_raw.parquet")
+# ── Find most recent pull folder ──────────────────────────────────────────────
+raw_folders = sorted(glob.glob("data/raw/2*"))
+if not raw_folders:
+    raise FileNotFoundError("No raw data found. Run 01_pull_data.py first.")
+latest = Path(raw_folders[-1])
+print(f"Using data from: {latest}")
+
 OUT_PATH = Path("data/processed/panel_clean.parquet")
 OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# ── Load ──────────────────────────────────────────────────────────────────────
+# ── Load all parquet files ────────────────────────────────────────────────────
 print("Loading raw data...")
-df = pd.read_parquet(RAW_PATH)
-n_raw = len(df)
-print(f"  Raw observations: {n_raw:,} | firms: {df['gvkey'].nunique():,}")
+files = sorted(latest.glob("fyear_*.parquet"))
+df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+df.columns = [c.strip().lower() for c in df.columns]
+print(f"  Raw observations: {len(df):,} | firms: {df['gvkey'].nunique():,}")
 
+# ── Drop duplicates ───────────────────────────────────────────────────────────
+df = df.drop_duplicates(subset=["gvkey", "fyear"]).copy()
+
+# ── Convert numeric columns ───────────────────────────────────────────────────
+for col in ["capx", "at", "emp", "nicon", "sale", "ebit", "ebitda",
+            "dltt", "dlc", "seq", "lt", "che", "act", "lct",
+            "ppent", "xrd", "dp", "wcap", "re", "oancf", "intan"]:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
 # ── SME Filter ────────────────────────────────────────────────────────────────
-# EU definition: < 250 employees OR total assets ≤ €43m
-# emp in Compustat is in thousands → 0.25 = 250 employees
-sme_mask = (df["emp"] < 0.25) | (df["at"] <= 43)
-df = df[sme_mask].copy()
-print(f"  After SME filter: {len(df):,} (removed {n_raw - len(df):,})")
-
+if "emp" in df.columns and "at" in df.columns:
+    sme_mask = (df["emp"] < 0.25) | (df["at"] <= 43)
+    n_before = len(df)
+    df = df[sme_mask].copy()
+    print(f"  After SME filter: {len(df):,} (removed {n_before - len(df):,})")
 
 # ── Construct Variables ───────────────────────────────────────────────────────
-# Performance
-df["roa"] = df["ib"] / df["at"]
-
-# Degree of internationalization (DOI)
-# pifo can be negative (foreign losses) — we winsorize below
-df["doi"] = df["pifo"] / df["sale"]
-df["doi_sq"] = df["doi"] ** 2
-
-# R&D intensity — treat missing xrd as zero (firm did not report R&D expenditure)
+df["ln_at"] = np.log(df["at"].replace(0, np.nan))
+df["capx_intensity"] = df["capx"] / df["at"]
+df["roa"] = df["nicon"] / df["at"] if "nicon" in df.columns else np.nan
+df["leverage"] = (df["dltt"] + df["dlc"]) / df["seq"]
 df["rd_intensity"] = df["xrd"].fillna(0) / df["at"]
 
-# Interaction term for H2
-df["doi_x_rd"] = df["doi"] * df["rd_intensity"]
-
-# Controls
-df["ln_at"] = np.log(df["at"])
-df["leverage"] = df["dltt"] / df["at"]
-df["age"] = (df["fyear"] - df["inco"].fillna(df["fyear"] - 10)).clip(lower=0)
-
-
-# ── Winsorize at 1%–99% ───────────────────────────────────────────────────────
-def winsorize(series: pd.Series, lower: float = 0.01, upper: float = 0.99) -> pd.Series:
-    """Clip series at given quantiles."""
+# ── Winsorize ─────────────────────────────────────────────────────────────────
+def winsorize(series, lower=0.01, upper=0.99):
     lo = series.quantile(lower)
     hi = series.quantile(upper)
     return series.clip(lo, hi)
 
+for col in ["capx_intensity", "roa", "leverage", "rd_intensity"]:
+    if col in df.columns:
+        df[col] = winsorize(df[col])
 
-for col in ["roa", "doi", "rd_intensity", "leverage"]:
-    df[col] = winsorize(df[col])
-
-# Recompute derived variables after winsorizing inputs
-df["doi_sq"] = df["doi"] ** 2
-df["doi_x_rd"] = df["doi"] * df["rd_intensity"]
-
-
-# ── Drop Observations with Missing Core Variables ─────────────────────────────
-core_vars = ["roa", "doi", "doi_sq", "rd_intensity", "doi_x_rd", "ln_at", "leverage", "age"]
-n_before = len(df)
-df = df.dropna(subset=core_vars).copy()
-print(f"  After dropping missing core vars: {len(df):,} (removed {n_before - len(df):,})")
-
-
-# ── Require ≥ 3 Observations per Firm (balanced panel assumption) ─────────────
-obs_per_firm = df.groupby("gvkey")["fyear"].count()
-valid_firms = obs_per_firm[obs_per_firm >= 3].index
-n_before = len(df)
-df = df[df["gvkey"].isin(valid_firms)].copy()
-print(f"  After min-obs filter (≥3 per firm): {len(df):,} (removed {n_before - len(df):,})")
-print(f"  Final: {len(df):,} obs | {df['gvkey'].nunique():,} firms | {df['loc'].nunique()} countries")
-print(f"  Years: {df['fyear'].min()}–{df['fyear'].max()}")
-
+# ── Sort ──────────────────────────────────────────────────────────────────────
+df = df.sort_values(["gvkey", "fyear"]).reset_index(drop=True)
+print(f"  Final: {len(df):,} obs | {df['gvkey'].nunique():,} firms")
 
 # ── Save ──────────────────────────────────────────────────────────────────────
 df.to_parquet(OUT_PATH, index=False)
-print(f"\nSaved cleaned panel to {OUT_PATH}")
 
+# Clean log
+log = Path("data/processed/clean_log.txt")
+log.write_text(
+    f"Rows: {len(df):,}\n"
+    f"Firms: {df['gvkey'].nunique():,}\n"
+    f"Years: {df['fyear'].min()}-{df['fyear'].max()}\n"
+)
+print(f"Saved to {OUT_PATH}")
