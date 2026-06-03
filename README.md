@@ -16,33 +16,13 @@ Following the EU definition, a firm is classified as an SME if it has fewer than
 - Source: WRDS Compustat Global (comp_global_daily.g_funda)
 
 ## Variables
-
-### Dependent variable (Y)
-| Construct | Data Item(s) | Formula |
-|-----------|-------------|---------|
-| Capital Intensity | CAPX, AT | CAPX / AT |
-
-### Independent variable (X)
-| Construct | Data Item(s) | Formula |
-|-----------|-------------|---------|
-| Firm Size | AT | log(AT) |
-| Geopolitical Risk | GPR Index | External (Caldara & Iacoviello, 2022) |
-
-### Controls
-| Construct | Data Item(s) | Formula |
-|-----------|-------------|---------|
-| Leverage | DLTT, DLC, SEQ | (DLTT+DLC) / SEQ |
-| Firm Age | FYEAR | proxy variable |
-| RoA | NICON, AT | NICON / AT |
-| Industry | SICH | categorical |
-
-## Data
-| Item | Detail |
-|------|--------|
-| Source | WRDS / Compustat Global |
-| Table | comp_global_daily.g_funda |
-| Downloaded | 2026-05-28 |
-| License | WRDS subscriber agreement |
-| Fiscal years | 2015-2024 |
-| Raw rows | 338,462 |
-| Clean rows | 89,713 |
+| Variable | Field(s) | Formula | Role |
+|----------|----------|---------|------|
+| Capital Intensity | capx, at | capx / at | Dependent (Y) |
+| Firm Size | at | log(at) | Independent |
+| GPR Index | GPR | External index | Moderator |
+| GPR x Size | - | gpr x ln_at | H2 interaction |
+| Leverage | dltt, dlc, seq | (dltt+dlc) / seq | Control |
+| RoA | nicon, at | nicon / at | Control |
+| Cash ratio | che, at | che / at | Control |
+| CAPX intensity | capx, at | capx / at | Control |
