@@ -1,9 +1,7 @@
 ---
 title: "Geopolitical Uncertainty and SME Capital Investment in Europe"
 subtitle: "A Panel Data Analysis"
-author: |
-  Bettina Hofmann | ExInt II | WU Vienna | SS 2026
-  https://github.com/bettinahfmnn/geopolitical-uncertainty-sme-internationalization
+author: "Bettina Hofmann | ExInt II | WU Vienna | SS 2026"
 date: "June 2026"
 bibliography: references/library.bib
 csl: references/apa.csl
@@ -20,6 +18,7 @@ execute:
   warning: false
   message: false
 ---
+\begin{center}\small https://github.com/bettinahfmnn/geopolitical-uncertainty-sme-internationalization\end{center}
 
 ```{python}
 #| label: setup
