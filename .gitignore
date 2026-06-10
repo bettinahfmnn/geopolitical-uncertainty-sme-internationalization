@@ -8,3 +8,4 @@ __pycache__/
 *.tex
 data/processed/
 *.parquet
+research_note.pdf

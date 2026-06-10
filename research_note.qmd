@@ -1,0 +1,301 @@
+---
+title: "Geopolitical Uncertainty and SME Capital Investment in Europe"
+subtitle: "A Panel Data Analysis"
+author: |
+  Bettina Hofmann | ExInt II | WU Vienna | SS 2026
+  https://github.com/bettinahfmnn/geopolitical-uncertainty-sme-internationalization
+date: "June 2026"
+bibliography: references/library.bib
+csl: references/apa.csl
+format:
+  pdf:
+    toc: false
+    number-sections: true
+    geometry: margin=2.5cm
+    fontsize: 11pt
+    linestretch: 1.3
+execute:
+  eval: true
+  echo: false
+  warning: false
+  message: false
+---
+
+```{python}
+#| label: setup
+import pandas as pd
+import numpy as np
+
+summary  = pd.read_csv("output/tables/summary_statistics.csv", index_col=0)
+results  = pd.read_csv("output/tables/regression_results.csv", index_col=0)
+panel    = pd.read_parquet("data/processed/panel_with_vars.parquet")
+
+n_obs       = int(panel.shape[0])
+n_firms     = int(panel["gvkey"].nunique())
+n_countries = 23
+capx_median = round(panel["capx_intensity_dv"].median(), 3)
+capx_mean   = round(panel["capx_intensity_dv"].mean(), 3)
+gpr_mean    = round(panel["gpr"].mean(), 1)
+gpr_min     = round(panel["gpr"].min(), 1)
+gpr_max     = round(panel["gpr"].max(), 1)
+
+def extract_coef(cell):
+    return float(str(cell).replace("***","").replace("**","").replace("*","").strip())
+
+b_gpr    = round(extract_coef(results.loc["gpr", "(2) FE"]), 6)
+b_int    = round(extract_coef(results.loc["gpr_x_size", "(3) FE+H2"]), 6)
+b_ols    = round(extract_coef(results.loc["gpr", "(1) OLS"]), 6)
+bias_pct = round(abs((b_ols - b_gpr) / b_ols) * 100, 0)
+```
+
+# Introduction
+
+Geopolitical risk — defined as the threat of adverse events arising from
+wars, terrorism, and political tensions between states — has increased
+markedly since 2015, with episodes such as Brexit, the US-China trade
+conflict, and the Russian invasion of Ukraine creating sustained
+uncertainty for firms operating in open economies
+[@caldaraMeasuringGeopoliticalRisk2022]. For small and medium-sized
+enterprises (SMEs), which lack the diversification, financial buffers,
+and political access available to large multinationals, geopolitical
+uncertainty poses a particular challenge to capital investment decisions.
+Yet the empirical literature has focused predominantly on large firms,
+leaving the question of how SMEs adjust their capital expenditure in
+response to geopolitical risk largely unanswered.
+
+The theoretical mechanisms linking uncertainty to investment are
+well-established. Real options theory predicts that firms facing
+irreversible investment decisions will delay capital expenditure when
+uncertainty increases, as waiting preserves the option value of
+flexibility [@bloomImpactUncertaintyShocks2009]. This wait-and-see
+dynamic should be especially pronounced for resource-constrained SMEs,
+which face higher relative costs of financial distress and have fewer
+alternative funding sources to buffer investment plans against adverse
+shocks [@luInternationalizationPerformanceSMEs2001].
+
+This research note examines whether geopolitical uncertainty reduces
+capital investment among European SMEs, and whether firm size moderates
+this relationship. Using a panel of `{python} f"{n_obs:,}"` firm-years
+from `{python} f"{n_firms:,}"` firms across `{python} n_countries`
+European countries over fiscal years 2015–2024, we exploit within-firm
+variation in capital intensity against annual variation in the
+Geopolitical Risk (GPR) index of @caldaraMeasuringGeopoliticalRisk2022.
+
+> **Research question:** Does geopolitical uncertainty reduce capital
+> investment among European SMEs, and does firm size moderate this
+> relationship?
+
+# Theoretical Background and Hypotheses
+
+## Geopolitical Risk and Capital Investment
+
+The Uppsala model of internationalisation
+[@johansonInternationalizationProcessFirm1977] posits that firms expand
+their foreign commitment incrementally, calibrating investment to the
+perceived uncertainty of the operating environment. Under this framework,
+rising geopolitical risk increases perceived environmental uncertainty,
+raising the subjective probability of adverse outcomes and reducing the
+expected returns to irreversible capital investment. This logic is
+reinforced by real options theory [@bloomImpactUncertaintyShocks2009]:
+when investment is costly to reverse and the future is uncertain, the
+option value of waiting dominates the opportunity cost of inaction,
+leading firms to defer capital expenditure.
+
+For SMEs, these mechanisms are amplified by structural vulnerability.
+Unlike large multinationals, SMEs typically lack access to deep capital
+markets, operate with thin liquidity buffers, and depend on relationship
+lending that is itself sensitive to macroeconomic and geopolitical
+conditions [@luInternationalizationPerformanceSMEs2001]. The liability
+of smallness — the disproportionate exposure of small firms to
+environmental shocks — implies that geopolitical uncertainty should
+reduce capital investment more sharply for SMEs than for large firms
+[@zaheerOVERCOMINGLIABILITYFOREIGNNESS1995]. Empirical evidence from
+related uncertainty measures supports this prediction: policy uncertainty
+reduces corporate investment, with effects concentrated among
+financially constrained firms [@gulenPolicyUncertaintyCorporate2015].
+
+> **H1:** Higher geopolitical risk reduces capital investment intensity
+> among European SMEs.
+>
+> *(Test: $\beta$(GPR) < 0 and statistically significant)*
+
+## The Moderating Role of Firm Size
+
+While geopolitical uncertainty should reduce capital investment broadly,
+its effect is unlikely to be homogeneous across the SME size spectrum.
+Larger firms — even within the SME category — possess greater resource
+slack, more diversified revenue streams, and stronger relationships with
+financial intermediaries that allow them to sustain investment plans
+during periods of elevated uncertainty
+[@johansonInternationalizationProcessFirm1977;
+@luInternationalizationPerformanceSMEs2001]. The liability of foreignness
+framework [@zaheerOVERCOMINGLIABILITYFOREIGNNESS1995] suggests that
+organisational resources and legitimacy — both of which scale with firm
+size — reduce exposure to external environmental threats.
+
+Larger SMEs can spread fixed investment costs over a larger asset base,
+reducing the per-unit impact of any reduction in capital expenditure.
+They also have superior access to external finance, enabling them to
+maintain investment through short-term uncertainty spikes rather than
+cutting capital budgets. Both channels predict that the negative effect
+of geopolitical risk on capital investment should be attenuated for
+larger firms.
+
+> **H2:** Firm size positively moderates the relationship between
+> geopolitical risk and capital investment — larger SMEs reduce capital
+> expenditure less in response to geopolitical uncertainty.
+>
+> *(Test: $\beta$(GPR $\times$ ln\_at) > 0)*
+
+# Data and Method
+
+## Sample
+
+The analysis draws on annual firm-level data from WRDS Compustat Global
+(`comp_global_daily.g_funda`) for 23 European countries over fiscal
+years 2015–2024. Firms are classified as SMEs following the EU
+definition: fewer than 250 employees or total assets not exceeding
+€43 million. Data quality filters require positive total assets
+exceeding €100,000, positive sales, positive stockholders' equity,
+and total assets of at least €1 million. A minimum of three consecutive
+firm-year observations is required for within-firm identification.
+The resulting unbalanced panel comprises `{python} f"{n_obs:,}"`
+firm-years from `{python} f"{n_firms:,}"` unique firms.
+
+## Variables
+
+**Dependent variable.** Capital intensity is measured as capital
+expenditure divided by total assets (`capx / at`).
+
+**Independent variable.** Geopolitical risk is measured using the
+annual average of the GPR index developed by
+@caldaraMeasuringGeopoliticalRisk2022, normalised to a baseline of
+100 for 1985–2019. The index ranged from `{python} gpr_min` to
+`{python} gpr_max` over our sample period, with a mean of
+`{python} gpr_mean`.
+
+**Moderator.** Firm size is measured as the natural logarithm of
+total assets (`log(at)`).
+
+**Control variables.** We include leverage (`dltt / at`), return on
+assets (`nicon / at`), and cash ratio (`che / at`). All continuous
+variables except log assets are winsorized at the 1st and 99th
+percentiles [@wilcoxIntroductionRobustEstimation2012].
+
+| Variable | Field(s) | Formula | Role |
+|----------|----------|---------|------|
+| Capital Intensity | `capx`, `at` | `capx / at` | Dependent (Y) |
+| GPR Index | GPR | Annual average | Independent (X) |
+| GPR × Size | — | `gpr × ln_at` | H2 interaction |
+| Firm Size | `at` | `log(at)` | Moderator + Control |
+| Leverage | `dltt`, `at` | `dltt / at` | Control |
+| RoA | `nicon`, `at` | `nicon / at` | Control |
+| Cash Ratio | `che`, `at` | `che / at` | Control |
+
+: Variable definitions. Source: Compustat Global (WRDS); GPR index
+from @caldaraMeasuringGeopoliticalRisk2022.
+
+## Estimation Strategy
+
+We estimate a firm fixed effects panel model:
+
+$$\text{CAPX}_{it} = \beta_1 \text{GPR}_{t} +
+\beta_2 (\text{GPR} \times \text{Size})_{it} +
+\gamma X_{it} + \mu_i + \varepsilon_{it}$$
+
+where $\mu_i$ are firm fixed effects absorbing time-invariant
+heterogeneity. Year fixed effects cannot be included because the GPR
+index varies only at the annual level — adding year dummies would
+perfectly absorb the GPR variable [@mundlakPoolingTimeSeries1978].
+Standard errors are clustered at the firm level
+[@petersenEstimatingStandardErrors2009].
+
+# Results
+
+## Descriptive Statistics
+
+```{python}
+#| label: tbl-summary
+#| tbl-cap: "Descriptive statistics. Continuous variables winsorized at 1st–99th percentiles."
+summary[["count","mean","std","min","50%","max"]].rename(
+    columns={"count":"N","50%":"Median"}).round(3)
+```
+
+The mean capital intensity is `{python} capx_mean`, with a median of
+`{python} capx_median`. The GPR index averaged `{python} gpr_mean`
+across the sample period, with substantial variation driven by
+geopolitical episodes including Brexit, the COVID-19 pandemic, and
+the 2022 Russian invasion of Ukraine
+[@caldaraMeasuringGeopoliticalRisk2022].
+
+![GPR index versus capital intensity (left panel, with bin means) and
+median capital intensity by GPR level for small versus large firms
+(right panel).](output/figures/main_relationship.png){width=90%}
+
+## Regression Results
+
+```{python}
+#| label: tbl-regression
+#| tbl-cap: "Panel regression results. Dependent variable: Capital Intensity (capx/at). Standard errors clustered at firm level in Models (2)–(3). * p<0.10, ** p<0.05, *** p<0.01."
+coef_rows = [r for r in results.index if r not in ["Firm FE","Year FE","Clustered SE","N","R²"]]
+stat_rows = ["Firm FE","Year FE","Clustered SE","N","R²"]
+results.loc[coef_rows + stat_rows, ["(1) OLS","(2) FE","(3) FE+H2"]]
+```
+
+**H1 — GPR and capital investment.** The GPR coefficient in the firm
+fixed effects model (Model 2) is $\hat{\beta}_1 =$ `{python} b_gpr`
+(p < 0.01). The sign is positive, contrary to the negative direction
+predicted by H1. **H1 is not supported.** Rather than reducing capital
+investment, higher geopolitical risk is associated with a small but
+significant increase in capital intensity. One possible interpretation
+is that SMEs respond to geopolitical uncertainty by substituting
+domestic capital investment for international expansion, consistent
+with the Uppsala model [@johansonInternationalizationProcessFirm1977].
+
+The OLS estimate exceeds the FE estimate by `{python} int(bias_pct)`%,
+confirming substantial omitted variable bias in the pooled
+cross-section [@mundlakPoolingTimeSeries1978;
+@petersenEstimatingStandardErrors2009].
+
+**H2 — Firm size as moderator.** The interaction term (Model 3) is
+not statistically significant (p = 0.889). **H2 is not supported.**
+
+# Discussion and Conclusion
+
+## Discussion
+
+The unexpected positive sign on GPR merits theoretical reflection.
+The real options framework predicts investment deferral under
+uncertainty [@bloomImpactUncertaintyShocks2009], but this assumes the
+marginal investment project is internationally oriented. If SMEs
+respond to geopolitical uncertainty by redirecting investment toward
+domestic operations — substituting foreign market entry for domestic
+capacity expansion — aggregate capital intensity could rise even as
+international investment falls. This interpretation is consistent with
+the Uppsala model [@johansonInternationalizationProcessFirm1977] and
+with evidence that policy uncertainty redirects rather than simply
+reduces investment [@gulenPolicyUncertaintyCorporate2015].
+
+## Conclusion
+
+This research note examines the effect of geopolitical uncertainty on
+capital investment among `{python} f"{n_firms:,}"` European SMEs over
+2015–2024. Contrary to H1, higher geopolitical risk is associated with
+a small but significant increase in capital intensity within firms
+($\hat{\beta} =$ `{python} b_gpr`, p < 0.01). H2 — that firm size
+moderates this relationship — is not supported.
+
+Two limitations apply. First, the GPR index is a global measure that
+does not distinguish between geopolitical events affecting specific
+European countries differently; country-specific GPR measures would
+provide finer identification. Second, capital expenditure from
+Compustat captures tangible investment only; intangible investment
+responses to geopolitical uncertainty remain unobserved. Future
+research could exploit sudden geopolitical shocks — such as the 2022
+Russian invasion of Ukraine — as natural experiments to identify
+causal effects.
+
+# References
+
+::: {#refs}
+:::
