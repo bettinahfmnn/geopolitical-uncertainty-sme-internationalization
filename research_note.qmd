@@ -164,22 +164,79 @@ firm-years from `{python} f"{n_firms:,}"` unique firms.
 ## Variables
 
 **Dependent variable.** Capital intensity is measured as capital
-expenditure divided by total assets (`capx / at`).
+expenditure divided by total assets (`capx / at`). This ratio is the
+standard operationalisation of firm-level investment activity in the
+corporate finance and international business literatures, since it
+scales the absolute euro amount spent on fixed assets by firm size,
+allowing comparison across firms of very different sizes within the
+same panel. Capital intensity therefore captures the *rate* at which
+a firm reinvests in tangible productive capacity each year, rather
+than its raw investment volume — which is the appropriate measure for
+testing whether firms slow down or accelerate investment in response
+to geopolitical uncertainty.
 
 **Independent variable.** Geopolitical risk is measured using the
 annual average of the GPR index developed by
 @caldaraMeasuringGeopoliticalRisk2022, normalised to a baseline of
 100 for 1985–2019. The index ranged from `{python} gpr_min` to
 `{python} gpr_max` over our sample period, with a mean of
-`{python} gpr_mean`.
+`{python} gpr_mean`. The GPR index was chosen over alternative
+uncertainty measures (such as the VIX or national policy uncertainty
+indices) because it is explicitly designed to capture geopolitical —
+rather than purely financial or domestic policy — sources of
+uncertainty, and because it is constructed from a consistent
+news-based methodology spanning our full sample period across all
+23 countries in the panel. We use the global index rather than the
+country-specific GPRC sub-indices because the country-level series
+are not normalised to a common baseline and are therefore not
+comparable in levels across countries.
+Although GPR is a continuous index in principle, our operationalisation
+assigns one annual value per fiscal year, since the underlying GPR
+series is published at monthly frequency and averaged to the
+fiscal-year level to match the annual frequency of the Compustat
+panel. Consequently, GPR takes only as many distinct values as there
+are sample years (ten, for 2015–2024), even though the variable itself
+is continuous in levels. This explains why Figure 1 shows GPR
+observations clustering into vertical bands rather than a smooth
+continuous spread: each band corresponds to one fiscal year, populated
+by all firms observed in that year. This is a feature of the research
+design, not a data error — the identifying variation in GPR is
+inherently at the year level, which is also why year fixed effects
+cannot be included in the regression (Section 3.3).
 
 **Moderator.** Firm size is measured as the natural logarithm of
-total assets (`log(at)`).
+total assets (`log(at)`). The logarithmic transformation is standard
+practice in the firm size literature because total assets are
+strongly right-skewed within the SME population — a small number of
+firms near the upper SME threshold (€43 million) would otherwise
+dominate the variance of the raw measure. Taking logs compresses this
+skew and makes the size effect interpretable as approximately
+proportional: a one-unit increase in `ln_at` corresponds to a
+constant percentage increase in total assets, regardless of the
+firm's starting size. Total assets, rather than employee count, was
+selected as the size proxy because it is directly available and
+consistently reported in Compustat Global, whereas employee counts
+are missing for a substantial share of firm-years.
 
 **Control variables.** We include leverage (`dltt / at`), return on
-assets (`nicon / at`), and cash ratio (`che / at`). All continuous
-variables except log assets are winsorized at the 1st and 99th
-percentiles [@wilcoxIntroductionRobustEstimation2012].
+assets (`nicon / at`), and cash ratio (`che / at`). Leverage controls
+for capital structure, since highly leveraged firms face tighter debt
+covenants and reduced financial flexibility, which independently
+constrains capital expenditure regardless of geopolitical conditions.
+Return on assets controls for underlying profitability, since more
+profitable firms generate more internal funds available for
+reinvestment, which could otherwise confound the GPR-investment
+relationship if profitability is correlated with macroeconomic cycles
+that also drive GPR. Cash ratio controls for liquidity and financial
+slack, since firms holding larger cash buffers are less constrained
+in their ability to maintain investment during uncertain periods,
+directly addressing the resource-based mechanism underlying H2. All
+three controls are standard in the corporate investment literature
+and are scaled by total assets for consistency with the dependent
+variable. All continuous variables except log assets are winsorized
+at the 1st and 99th percentiles [@wilcoxIntroductionRobustEstimation2012]
+to limit the influence of extreme outliers without discarding
+observations.
 
 | Variable | Field(s) | Formula | Role |
 |----------|----------|---------|------|
